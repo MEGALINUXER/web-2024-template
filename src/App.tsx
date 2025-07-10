@@ -2,21 +2,74 @@ import { useState, useEffect, useCallback } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import FlagIcon from '@mui/icons-material/Flag';
 
-const MAZE = [
-  [1,1,1,1,1,1,1],
-  [1,0,0,0,1,0,1],
-  [1,0,1,0,1,0,1],
-  [1,0,1,0,0,0,1],
-  [1,0,1,1,1,0,1],
-  [1,0,0,0,0,0,1], // проход снизу
-  [1,1,1,1,1,1,1],
-];
-const CELL_SIZE = 36;
-const PLAYER_START = { x: 1, y: 1 };
-const DOG_START = { x: 3, y: 3 }; // собака в центре
-const FINISH = { x: 5, y: 5 };
-
 interface Position { x: number; y: number; }
+
+const LEVELS = [
+  // Уровень 1 (простой)
+  {
+    maze: [
+      [1,1,1,1,1,1,1],
+      [1,0,0,0,1,0,1],
+      [1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1],
+      [1,0,1,1,1,0,1],
+      [1,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1],
+    ],
+    player: { x: 1, y: 1 },
+    dog: { x: 3, y: 3 },
+    finish: { x: 5, y: 5 },
+  },
+  // Уровень 2 (собака ближе к финишу, больше тупиков)
+  {
+    maze: [
+      [1,1,1,1,1,1,1],
+      [1,0,0,0,1,0,1],
+      [1,0,1,0,1,0,1],
+      [1,0,1,0,1,0,1],
+      [1,0,0,0,1,0,1],
+      [1,1,1,0,0,0,1],
+      [1,1,1,1,1,1,1],
+    ],
+    player: { x: 1, y: 1 },
+    dog: { x: 4, y: 4 },
+    finish: { x: 5, y: 5 },
+  },
+  // Уровень 3 (сложный, но проходимый, 9x9)
+  {
+    maze: [
+      [1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,1,0,0,0,1],
+      [1,0,1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1,0,1],
+      [1,0,1,1,1,0,1,0,1],
+      [1,0,0,0,1,0,1,0,1],
+      [1,1,1,0,1,0,1,0,1],
+      [1,0,0,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1],
+    ],
+    player: { x: 1, y: 1 },
+    dog: { x: 4, y: 4 },
+    finish: { x: 7, y: 7 },
+  },
+  // Уровень 4 (очень сложный, 9x9)
+  {
+    maze: [
+      [1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,1,0,0,0,1],
+      [1,0,1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1,0,1],
+      [1,0,1,1,1,1,1,0,1],
+      [1,0,0,0,1,0,0,0,1],
+      [1,1,1,0,1,0,1,1,1],
+      [1,0,0,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1],
+    ],
+    player: { x: 1, y: 1 },
+    dog: { x: 7, y: 5 },
+    finish: { x: 7, y: 7 },
+  },
+];
 
 function bfsNextStep(maze: number[][], from: Position, to: Position): Position {
   if (from.x === to.x && from.y === to.y) return from;
@@ -55,12 +108,16 @@ function bfsNextStep(maze: number[][], from: Position, to: Position): Position {
 }
 
 const App = () => {
-  const [player, setPlayer] = useState<Position>(PLAYER_START);
-  const [dog, setDog] = useState<Position>(DOG_START);
+  const [level, setLevel] = useState(0);
+  const [player, setPlayer] = useState<Position>(LEVELS[0].player);
+  const [dog, setDog] = useState<Position>(LEVELS[0].dog);
   const [win, setWin] = useState(false);
   const [lose, setLose] = useState(false);
 
-  const canMove = (x: number, y: number) => MAZE[y]?.[x] === 0;
+  const maze = LEVELS[level].maze;
+  const finish = LEVELS[level].finish;
+
+  const canMove = (x: number, y: number) => maze[y]?.[x] === 0;
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (win || lose) return;
@@ -72,13 +129,13 @@ const App = () => {
     else return;
     if (canMove(x, y)) {
       const newPlayer = { x, y };
-      const newDog = bfsNextStep(MAZE, dog, newPlayer);
+      const newDog = bfsNextStep(maze, dog, newPlayer);
       setPlayer(newPlayer);
       setDog(newDog);
       if (newDog.x === x && newDog.y === y) setLose(true);
-      else if (x === FINISH.x && y === FINISH.y) setWin(true);
+      else if (x === finish.x && y === finish.y) setWin(true);
     }
-  }, [player, dog, win, lose]);
+  }, [player, dog, win, lose, maze, finish]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -86,40 +143,52 @@ const App = () => {
   }, [handleKeyDown]);
 
   const handleReset = () => {
-    setPlayer(PLAYER_START);
-    setDog(DOG_START);
+    setPlayer(LEVELS[level].player);
+    setDog(LEVELS[level].dog);
     setWin(false);
     setLose(false);
   };
 
+  const handleNextLevel = () => {
+    if (level < LEVELS.length - 1) {
+      setLevel(level + 1);
+      setPlayer(LEVELS[level + 1].player);
+      setDog(LEVELS[level + 1].dog);
+      setWin(false);
+      setLose(false);
+    }
+  };
+
+  const gridSize = maze[0].length;
+
   return (
     <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-      <Typography variant="h5" gutterBottom>Мини-лабиринт с собакой</Typography>
+      <Typography variant="h5" gutterBottom>Лабиринт — уровень {level + 1}</Typography>
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `repeat(7, ${CELL_SIZE}px)`,
-          gridTemplateRows: `repeat(7, ${CELL_SIZE}px)`,
+          gridTemplateColumns: `repeat(${gridSize}, 36px)`,
+          gridTemplateRows: `repeat(${gridSize}, 36px)`,
           gap: 0,
           border: '2px solid #333',
         }}
       >
-        {MAZE.map((row, y) =>
+        {maze.map((row, y) =>
           row.map((cell, x) => {
             let content = null;
             if (player.x === x && player.y === y) {
               content = <Box sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: 'primary.main' }} />;
             } else if (dog.x === x && dog.y === y) {
               content = <Box sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: 'error.main' }} />;
-            } else if (FINISH.x === x && FINISH.y === y) {
+            } else if (finish.x === x && finish.y === y) {
               content = <FlagIcon color="success" fontSize="small" />;
             }
             return (
               <Paper
                 key={`${x}-${y}`}
                 sx={{
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
+                  width: 36,
+                  height: 36,
                   bgcolor: cell === 1 ? 'grey.800' : 'grey.100',
                   display: 'flex',
                   alignItems: 'center',
@@ -135,7 +204,15 @@ const App = () => {
           })
         )}
       </Box>
-      {win && <Typography color="success.main" variant="h6">Победа!</Typography>}
+      {win && (level < LEVELS.length - 1) && (
+        <>
+          <Typography color="success.main" variant="h6">Победа! Следующий уровень?</Typography>
+          <Button variant="contained" onClick={handleNextLevel}>Следующий уровень</Button>
+        </>
+      )}
+      {win && level === LEVELS.length - 1 && (
+        <Typography color="success.main" variant="h6">Поздравляем! Все уровни пройдены!</Typography>
+      )}
       {lose && <Typography color="error.main" variant="h6">Поражение! Собака догнала.</Typography>}
       <Button variant="contained" onClick={handleReset}>Сбросить</Button>
     </Box>
